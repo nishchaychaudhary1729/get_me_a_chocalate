@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar2 from '@/components/navbar2'
 
-const LoginPage = () => {
+const SignUpPage = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -26,24 +26,21 @@ const LoginPage = () => {
         },
         body: JSON.stringify(formData),
       })
-
       const data = await response.json()
-
+      
       if (!response.ok) {
-        if (response.status === 404) {
-          setError('User not found. Please sign up first.')
-        } else if (response.status === 401) {
-          setError('Invalid email or password.')
+        if (response.status === 409) {
+          setError(data.error)
         } else {
-          setError('Something went wrong. Please try again.')
+          setError(data.error || 'Something went wrong')
         }
         return
       }
 
-      // Successful login
-      router.push('/home')
+      // Successful signup
+      router.push('/home/' + formData.email.split('@')[0])
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('Signup error:', error)
       setError('An error occurred. Please try again.')
     }
   }
@@ -109,10 +106,10 @@ const LoginPage = () => {
               Sign up
             </button>
           </div>
-          {error && error.includes('sign up') && (
+          {error && error.includes('sign in') && (
             <div className="mt-4 text-center">
-              <Link href="/signup" className="text-blue-600 hover:text-blue-800">
-                Click here to sign up
+              <Link href="/signin" className="text-blue-600 hover:text-blue-800">
+                Click here to sign in instead
               </Link>
             </div>
           )}
@@ -122,4 +119,4 @@ const LoginPage = () => {
   )
 }
 
-export default LoginPage
+export default SignUpPage
