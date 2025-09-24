@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import HomeNavbar from '@/components/HomeNavbar'
+import Script from 'next/script'
 
 const UserHome = () => {
   const params = useParams()
   const router = useRouter()
   const username = params.username
+  const [amount, setAmount] = useState(1) // Default 1 chocolate = ₹1
 
   useEffect(() => {
     // Check if user is authenticated
@@ -27,9 +29,61 @@ const UserHome = () => {
     }
   }, [username, router])
 
+  const initializeRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.onload = () => resolve(true)
+      script.onerror = () => resolve(false)
+      document.body.appendChild(script)
+    })
+  }
+
   const handlePayment = async () => {
-    // TODO: Implement payment gateway integration
-    console.log('Processing payment for $', amount)
+    const res = await initializeRazorpay()
+    if (!res) {
+      alert('Razorpay SDK failed to load')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to create order')
+
+      const options = {
+        key: 'rzp_test_RL0WDz71IcBvMC', // Use the key directly here for client-side
+        amount: data.amount,
+        currency: data.currency,
+        name: 'Coffee for Code',
+        description: `${amount} Chocolates Support`,
+        order_id: data.id,
+        handler: function (response) {
+          alert('Payment successful! Thank you for your support! 🍫')
+        },
+        prefill: {
+          name: username,
+        },
+        theme: {
+          color: '#F59E0B',
+        },
+      }
+
+      const paymentObject = new window.Razorpay(options)
+      paymentObject.open()
+    } catch (error) {
+      console.error('Payment error:', error)
+      alert('Failed to process payment. Please try again.')
+    }
   }
 
   return (
@@ -50,30 +104,33 @@ const UserHome = () => {
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <h3 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
-              Support Through UPI 🍫
+              Buy Me Some Chocolates 🍫
             </h3>
             
             <div className="flex flex-col items-center space-y-8">
-              {/* QR Code */}
-              <div className="relative w-64 h-64 border-2 border-gray-200 rounded-lg overflow-hidden">
-                <Image
-                  src="/qr-code.png" // Add your QR code image to the public folder
-                  alt="UPI QR Code"
-                  layout="fill"
-                  objectFit="contain"
-                  className="p-2"
+              {/* Amount Selection */}
+              <div className="w-full max-w-md">
+                <label htmlFor="amount" className="block text-lg font-medium text-gray-700 mb-2 text-center">
+                  How many chocolates? (₹1 each)
+                </label>
+                <input
+                  type="number"
+                  id="amount"
+                  min="1"
+                  max="100"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="w-full px-4 py-2 text-xl text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
 
-              {/* UPI ID */}
-              <div className="text-center space-y-4">
-                <p className="text-lg font-medium text-gray-700">UPI ID:</p>
-                <div className="flex items-center justify-center space-x-3">
-                  <code className="px-4 py-2 bg-gray-100 rounded-md text-gray-800 font-mono">
-                    9971476565@ybl
-                  </code>
-                </div>
-              </div>
+              {/* Pay Button */}
+              <button
+                onClick={handlePayment}
+                className="px-8 py-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors text-lg font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+              >
+                Pay ₹{amount}
+              </button>
             </div>
           </div>
         </div>
